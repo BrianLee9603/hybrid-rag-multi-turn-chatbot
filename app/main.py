@@ -1,11 +1,24 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.api import api_router
 from app.core.config import settings
+from app.services.rag_service import rag_service
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: Index repository documents for RAG
+    try:
+        rag_service.reindex_docs()
+    except Exception as e:
+        print(f"RAG: Error indexing docs on startup: {e}")
+    yield
+    # Shutdown logic (if any)
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
-    openapi_url=f"{settings.API_V1_STR}/openapi.json"
+    openapi_url=f"{settings.API_V1_STR}/openapi.json",
+    lifespan=lifespan
 )
 
 # Set up CORS

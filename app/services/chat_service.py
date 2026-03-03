@@ -5,7 +5,7 @@ import time
 import os
 import tiktoken
 from typing import AsyncGenerator, Dict, Any, List, Optional
-from agents import Agent, Runner
+from agents import Agent, Runner, function_tool
 from openai.types.responses import ResponseTextDeltaEvent
 
 from app.core.config import settings
@@ -25,17 +25,33 @@ class ChatService:
         if settings.OPENAI_API_KEY:
             os.environ["OPENAI_API_KEY"] = settings.OPENAI_API_KEY
             
+        # Define our RAG search tool
+        from app.services.rag_service import rag_service
+        
+        @function_tool
+        def search_docs(query: str) -> str:
+            """
+            Search internal repository documentation (README, requirements, etc.).
+            Use this when the user asks about the project setup, tech stack, or goal.
+            """
+            try:
+                print(f"RAG: Searching for context: {query}")
+                return rag_service.search(query)
+            except Exception as e:
+                print(f"RAG: Search failed: {e}")
+                return f"Error searching documents: {str(e)}"
+
         self.agent = Agent(
             name="Assistant",
-            instructions=settings.AGENT_PERSONA,
-            model=settings.AGENT_MODEL
+            instructions=settings.AGENT_PERSONA + "\n\nYou have access to internal project documentation. If you need to verify a requirement or setup step, use the search_docs tool.",
+            model=settings.AGENT_MODEL,
+            tools=[search_docs]
         )
 
     async def summarize_history(self, history: List[ChatMessage], current_summary: Optional[str] = None) -> str:
         """
         Creates a concise summary of the conversation so far.
         """
-        # We re-import here to avoid circular dependencies if any
         from openai import AsyncOpenAI
         client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
         
@@ -98,10 +114,12 @@ class ChatService:
             history_context += "\n"
 
         # 3. Initialize Agent
+        # We use transient agent to pass dynamic instructions
         transient_agent = Agent(
             name=self.agent.name,
             instructions=dynamic_instructions,
-            model=self.agent.model
+            model=self.agent.model,
+            tools=self.agent.tools # Pass tools to the transient agent
         )
 
         # 4. Run agent
@@ -132,7 +150,6 @@ class ChatService:
                         last_event_time = asyncio.get_event_loop().time()
                         yield self._format_sse("agent.message.delta", {"text": delta_text})
                     
-                    # Capture finish reason if available in metadata
                     if event.type == "raw_response_event" and hasattr(event.data, "finish_reason") and event.data.finish_reason:
                         content_tracker.finish_reason = event.data.finish_reason
 
