@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from sqlalchemy import String, Text, ForeignKey, DateTime, Enum as SQLEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from typing import List
+from typing import List, Optional
 import enum
 
 from app.db.base import Base
@@ -22,12 +22,13 @@ class ChatSession(Base):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc)
     )
+    summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     # Relationship to messages
     messages: Mapped[List["ChatMessage"]] = relationship(
         back_populates="session", 
         cascade="all, delete-orphan",
-        order_by="ChatMessage.created_at"
+        order_by="ChatMessage.created_at.asc()"
     )
 
 class ChatMessage(Base):

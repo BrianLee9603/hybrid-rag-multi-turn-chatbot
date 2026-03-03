@@ -3,12 +3,12 @@ import json
 import asyncio
 import time
 import os
-from typing import AsyncGenerator, Dict, Any, List
+from typing import AsyncGenerator, Dict, Any, List, Optional
 from agents import Agent, Runner
 from openai.types.responses import ResponseTextDeltaEvent
 
 from app.core.config import settings
-from app.models.chat import MessageRole
+from app.models.chat import MessageRole, ChatMessage
 
 class AssistantContent:
     """Simple class to track content across generator execution."""
@@ -28,6 +28,31 @@ class ChatService:
             model=settings.AGENT_MODEL
         )
 
+    async def summarize_history(self, history: List[ChatMessage], current_summary: Optional[str] = None) -> str:
+        """
+        Creates a concise summary of the conversation so far.
+        Incorporates the existing summary to maintain continuity.
+        """
+        history_text = "\n".join([f"{m.role.value.upper()}: {m.content}" for m in history])
+        
+        prompt = (
+            "Summarize the following chat history into a single, concise paragraph. "
+            "Focus on key facts, user preferences, and the current state of the discussion. "
+            "If a summary already exists, incorporate the new information into it.\n\n"
+            f"EXISTING SUMMARY: {current_summary or 'None'}\n\n"
+            f"NEW MESSAGES:\n{history_text}\n\n"
+            "CONCISE SUMMARY:"
+        )
+
+        # Use a non-streaming call for the summary
+        response = await self.openai_client.chat.completions.create(
+            model=self.agent.model,
+            messages=[{"role": "system", "content": "You are a helpful assistant that summarizes conversations."},
+                      {"role": "user", "content": prompt}],
+            max_tokens=200
+        )
+        return response.choices[0].message.content
+
     def _format_sse(self, event: str, data: Dict[Any, Any]) -> str:
         """Helper to format SSE wire format: event: name\ndata: JSON\n\n"""
         return f"event: {event}\ndata: {json.dumps(data)}\n\n"
@@ -36,20 +61,43 @@ class ChatService:
         self, 
         message: str,
         session_id: uuid.UUID,
-        content_tracker: AssistantContent
+        content_tracker: AssistantContent,
+        history: List[ChatMessage] = None,
+        summary: Optional[str] = None
     ) -> AsyncGenerator[str, None]:
         """
-        Orchestrates the SSE stream including heartbeats and deltas.
-        Tracks performance metrics for evaluation.
+        Orchestrates the SSE stream with injected context.
         """
         start_time = asyncio.get_event_loop().time()
         ttft_recorded = False
         full_assistant_content: List[str] = []
 
-        # 1. Run the agent
+        # 1. Prepare dynamic instructions (Persona + Summary)
+        dynamic_instructions = settings.AGENT_PERSONA
+        if summary:
+            dynamic_instructions += f"\n\nCONTEXT FROM PREVIOUS CONVERSATION:\n{summary}"
+
+        # 2. Format history for context
+        history_context = ""
+        if history:
+            history_context = "PREVIOUS CONVERSATION HISTORY:\n"
+            for m in history:
+                history_context += f"{m.role.value.upper()}: {m.content}\n"
+            history_context += "\n"
+
+        # 3. Initialize Agent with dynamic context
+        transient_agent = Agent(
+            name=self.agent.name,
+            instructions=dynamic_instructions,
+            model=self.agent.model
+        )
+
+        # 4. Run the agent with context prepended to the current input
+        full_input = f"{history_context}USER: {message}"
+        
         result = Runner.run_streamed(
-            self.agent, 
-            input=message
+            transient_agent, 
+            input=full_input
         )
         event_iterator = result.stream_events().__aiter__()
 

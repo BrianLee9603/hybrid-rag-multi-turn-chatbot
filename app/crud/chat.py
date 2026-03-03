@@ -47,7 +47,6 @@ async def get_session_history(
 ) -> Optional[ChatSession]:
     """
     Fetch a session and all its messages, scoped by user_id.
-    Uses selectinload to eagerly load messages in an async way.
     """
     result = await db.execute(
         select(ChatSession)
@@ -75,6 +74,43 @@ async def create_message(
     await db.flush()
     return message
 
+async def get_session_context(
+    db: AsyncSession, 
+    session_id: uuid.UUID, 
+    user_id: str,
+    window_size: int = 10
+) -> Optional[ChatSession]:
+    """
+    Fetch a session and only the most recent N messages for context.
+    """
+    session = await get_or_create_session(db, session_id, user_id)
+    
+    # Manually fetch limited messages to avoid full load if history is huge
+    msg_result = await db.execute(
+        select(ChatMessage)
+        .where(ChatMessage.session_id == session_id)
+        .order_by(ChatMessage.created_at.desc())
+        .limit(window_size)
+    )
+    messages = list(msg_result.scalars().all())
+    messages.reverse() # Chronological
+    
+    # We use a non-persistent attribute to pass these messages back
+    # instead of overwriting the relationship which can cause ORM issues
+    session.context_messages = messages
+    return session
+
+async def update_session_summary(
+    db: AsyncSession,
+    session_id: uuid.UUID,
+    summary: str
+):
+    """Update the long-term summary for a session."""
+    session = await db.get(ChatSession, session_id)
+    if session:
+        session.summary = summary
+        await db.commit()
+
 async def delete_session(
     db: AsyncSession,
     session_id: uuid.UUID,
@@ -82,15 +118,19 @@ async def delete_session(
 ) -> bool:
     """
     Delete a session and all its messages (via cascade), scoped by user_id.
-    Returns True if a session was deleted, False otherwise.
     """
-    # We verify the session exists for THIS user before deleting
-    # The database has a CASCADE DELETE constraint, so messages will be removed automatically
-    stmt = delete(ChatSession).where(
-        ChatSession.id == session_id,
-        ChatSession.user_id == user_id
+    result = await db.execute(
+        select(ChatSession).where(
+            ChatSession.id == session_id,
+            ChatSession.user_id == user_id
+        )
     )
-    result = await db.execute(stmt)
+    session = result.scalar_one_or_none()
+    
+    if not session:
+        return False
+        
+    await db.delete(session)
     await db.commit()
     
-    return result.rowcount > 0
+    return True
