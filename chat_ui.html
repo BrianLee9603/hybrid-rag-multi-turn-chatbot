@@ -3,23 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Chat Service</title>
+    <title>AI Chat Service - Premium UI</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f4f7f6; margin: 0; display: flex; flex-direction: column; height: 100vh; }
-        .header { background-color: #2c3e50; color: white; padding: 1rem; text-align: center; font-weight: bold; }
+        .header { background-color: #2c3e50; color: white; padding: 1rem; text-align: center; font-weight: bold; border-bottom: 4px solid #e67e22; }
         .config-bar { background: white; padding: 10px; display: flex; gap: 10px; border-bottom: 1px solid #ddd; justify-content: center; flex-wrap: wrap; }
-        input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
-        #chat-window { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
-        .message { max-width: 70%; padding: 10px 15px; border-radius: 15px; line-height: 1.4; word-wrap: break-word; position: relative; }
+        input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 12px; }
+        #chat-window { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+        .message { max-width: 80%; padding: 12px 18px; border-radius: 15px; line-height: 1.5; word-wrap: break-word; position: relative; font-size: 14px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
         .user { align-self: flex-end; background-color: #007bff; color: white; border-bottom-right-radius: 2px; }
-        .assistant { align-self: flex-start; background-color: #e9e9eb; color: #333; border-bottom-left-radius: 2px; }
-        .input-area { background: white; padding: 20px; display: flex; gap: 10px; border-top: 1px solid #ddd; }
-        textarea { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; resize: none; height: 40px; }
-        button { padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; transition: opacity 0.2s; }
-        button:hover { opacity: 0.8; }
+        .assistant { align-self: flex-start; background-color: white; color: #333; border-bottom-left-radius: 2px; border: 1px solid #eee; }
+        .metadata { font-size: 10px; margin-top: 5px; opacity: 0.7; display: flex; justify-content: flex-end; gap: 10px; }
+        .assistant .metadata { justify-content: flex-start; }
+        .input-area { background: white; padding: 20px; display: flex; gap: 10px; border-top: 1px solid #ddd; align-items: center; }
+        textarea { flex: 1; padding: 12px; border: 1px solid #ccc; border-radius: 8px; resize: none; height: 50px; font-family: inherit; font-size: 14px; }
+        button { padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
+        button:hover { filter: brightness(0.9); transform: translateY(-1px); }
+        button:active { transform: translateY(0); }
         button:disabled { background-color: #ccc; cursor: not-allowed; }
-        .status-msg { font-size: 12px; color: #666; text-align: center; margin: 5px 0; font-style: italic; }
-        .diag-box { border: 1px solid #ddd; padding: 10px; margin: 10px 0; background: #fffbe6; border-radius: 5px; font-size: 13px; }
+        .scorecard { background: #fff; border: 2px solid #2c3e50; border-radius: 8px; padding: 15px; margin: 10px 0; font-size: 13px; }
+        .score-row { display: flex; justify-content: space-between; border-bottom: 1px solid #eee; padding: 5px 0; }
+        .status-msg { font-size: 12px; color: #888; text-align: center; margin: 5px 0; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 5px; overflow-x: auto; border: 1px solid #ddd; }
+        code { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; font-size: 85%; }
     </style>
 </head>
 <body>
@@ -28,40 +35,38 @@
 
 <div class="config-bar">
     <input type="text" id="userId" placeholder="User ID" value="user-123">
-    <input type="text" id="sessionId" placeholder="Session ID (UUID)" style="width: 300px;">
+    <input type="text" id="sessionId" placeholder="Session ID" style="width: 280px;">
     <button onclick="generateUUID()" style="background-color: #007bff;">New Session</button>
     <button onclick="loadHistory()" style="background-color: #17a2b8;">Load History</button>
-    <button onclick="runDiagnostics()" style="background-color: #6c757d;">Run UI Test</button>
+    <button id="evalBtn" onclick="runSystemEvaluation()" style="background-color: #e67e22;">System Evaluation</button>
 </div>
 
 <div id="chat-window"></div>
 
 <div class="input-area">
-    <textarea id="userInput" placeholder="Type your message..." onkeydown="handleKeyPress(event)"></textarea>
+    <textarea id="userInput" placeholder="Type your message... (Enter to send, Shift+Enter for newline)" onkeydown="handleKeyPress(event)"></textarea>
     <button id="sendBtn" onclick="sendMessage()">Send</button>
 </div>
 
 <script>
     const API_BASE = "http://localhost:8000/api/v1";
+    
+    // Configure marked options
+    marked.setOptions({
+        breaks: true,
+        gfm: true
+    });
 
     function handleKeyPress(event) {
         if (event.key === 'Enter' && !event.shiftKey) {
-            event.preventDefault(); // Prevent default newline
+            event.preventDefault();
             sendMessage();
         }
     }
-    
+
     function generateUUID() {
-        console.log("Generating new session...");
         let uuid = "";
-        try {
-            if (window.crypto && window.crypto.randomUUID) {
-                uuid = window.crypto.randomUUID();
-            } else {
-                throw new Error("randomUUID not available");
-            }
-        } catch (e) {
-            // Fallback implementation
+        try { uuid = window.crypto.randomUUID(); } catch (e) {
             uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
                 var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
                 return v.toString(16);
@@ -72,17 +77,30 @@
         return uuid;
     }
 
-    // Set a default UUID on load
     window.onload = generateUUID;
 
-    function appendMessage(role, text) {
+    function appendMessage(role, text, tokens = null, reason = null) {
         const win = document.getElementById('chat-window');
-        const div = document.createElement('div');
-        div.className = `message ${role}`;
-        div.innerText = text;
-        win.appendChild(div);
+        const outer = document.createElement('div');
+        outer.className = `message ${role}`;
+        
+        const content = document.createElement('div');
+        content.className = 'content';
+        // Render Markdown
+        content.innerHTML = marked.parse(text);
+        outer.appendChild(content);
+
+        if (tokens !== null || reason) {
+            const meta = document.createElement('div');
+            meta.className = 'metadata';
+            if (tokens) meta.innerHTML += `<span>Tokens: ${tokens}</span>`;
+            if (reason) meta.innerHTML += `<span>Reason: ${reason}</span>`;
+            outer.appendChild(meta);
+        }
+
+        win.appendChild(outer);
         win.scrollTop = win.scrollHeight;
-        return div;
+        return outer;
     }
 
     async function loadHistory() {
@@ -93,50 +111,16 @@
 
         try {
             const resp = await fetch(`${API_BASE}/sessions/${sessionId}/history?user_id=${userId}`);
-            if (!resp.ok) throw new Error(`Server returned ${resp.status}`);
-            
             const data = await resp.json();
-            win.innerHTML = `<div class="status-msg">History loaded for ${sessionId}</div>`;
+            win.innerHTML = '';
             if (data.messages && data.messages.length > 0) {
-                data.messages.forEach(m => appendMessage(m.role, m.content));
+                data.messages.forEach(m => appendMessage(m.role, m.content, m.token_count, m.finish_reason));
             } else {
-                win.innerHTML += '<div class="status-msg">No previous messages found.</div>';
+                win.innerHTML = '<div class="status-msg">No history found for this session.</div>';
             }
         } catch (e) {
-            win.innerHTML = `<div class="diag-box" style="color:red">Error: ${e.message}</div>`;
+            win.innerHTML = `<div class="status-msg" style="color:red">Error: ${e.message}</div>`;
         }
-    }
-
-    function runDiagnostics() {
-        const win = document.getElementById('chat-window');
-        win.innerHTML = '<div class="diag-box"><strong>Running Diagnostics...</strong></div>';
-        
-        // 1. UUID Test
-        const oldVal = document.getElementById('sessionId').value;
-        const newVal = generateUUID();
-        const uuidOk = (oldVal !== newVal) && newVal.length > 20;
-        
-        // 2. DOM Test
-        const b = appendMessage('assistant', 'Test Bubble');
-        const domOk = !!b;
-
-        win.innerHTML = `
-            <div class="diag-box">
-                <strong>Diagnostic Results:</strong><br>
-                ${uuidOk ? '✅' : '❌'} UUID Generation: ${uuidOk ? 'OK' : 'FAIL'}<br>
-                ${domOk ? '✅' : '❌'} UI Rendering: ${domOk ? 'OK' : 'FAIL'}<br>
-                Checking backend connection...
-            </div>
-        `;
-
-        fetch(`${API_BASE}/health`)
-            .then(r => r.json())
-            .then(d => {
-                win.innerHTML += `<div class="diag-box" style="background:#e6fffa">✅ Backend Online: ${JSON.stringify(d)}</div>`;
-            })
-            .catch(e => {
-                win.innerHTML += `<div class="diag-box" style="background:#fff5f5; color:red">❌ Backend Offline: ${e.message}<br><small>Make sure Docker is running on port 8000</small></div>`;
-            });
     }
 
     async function sendMessage() {
@@ -151,6 +135,7 @@
         appendMessage('user', message);
         input.value = '';
         const aiBubble = appendMessage('assistant', '...');
+        const aiContentDiv = aiBubble.querySelector('.content');
         let aiText = "";
         
         sendBtn.disabled = true;
@@ -161,8 +146,6 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ session_id: sessionId, user_id: userId, message: message })
             });
-
-            if (!response.ok) throw new Error(`Server Error: ${response.status}`);
 
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
@@ -179,20 +162,75 @@
                         try {
                             const payload = JSON.parse(line.substring(6));
                             if (payload.text) {
-                                if (aiText === "") aiBubble.innerText = "";
+                                if (aiText === "") aiContentDiv.innerHTML = "";
                                 aiText += payload.text;
-                                aiBubble.innerText = aiText;
+                                aiContentDiv.innerHTML = marked.parse(aiText);
+                                document.getElementById('chat-window').scrollTop = document.getElementById('chat-window').scrollHeight;
                             }
                         } catch (err) { }
                     }
                 });
             }
+            
+            // After stream is done, we might want to refresh to get tokens, 
+            // but for now we'll just wait for the user to Load History if they want exact metadata
+            const status = document.createElement('div');
+            status.className = 'status-msg';
+            status.innerText = 'Stream complete.';
+            document.getElementById('chat-window').appendChild(status);
+
         } catch (e) {
-            aiBubble.innerText = `Error: ${e.message}`;
-            aiBubble.style.color = 'red';
+            aiContentDiv.innerText = `Error: ${e.message}`;
+            aiContentDiv.style.color = 'red';
         } finally {
             sendBtn.disabled = false;
         }
+    }
+
+    async function streamSingle(message, userId, sessionId) {
+        const startTime = performance.now();
+        let ttft = null;
+        const response = await fetch(`${API_BASE}/chat/stream`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: sessionId, user_id: userId, message: message })
+        });
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            const chunk = decoder.decode(value);
+            if (chunk.includes('data: ') && ttft === null) ttft = performance.now() - startTime;
+        }
+        return { ttft };
+    }
+
+    async function runSystemEvaluation() {
+        const evalBtn = document.getElementById('evalBtn');
+        const win = document.getElementById('chat-window');
+        evalBtn.disabled = true;
+        win.innerHTML = '<div class="status-msg">🚀 Initializing System Evaluation...</div>';
+
+        const cases = [
+            { id: "Latency Test", input: "Say hi." },
+            { id: "Complex Reasoning", input: "Write a short python function to sort a list." }
+        ];
+
+        let results = [];
+        for (const c of cases) {
+            win.innerHTML += `<div class="status-msg">Running: ${c.id}...</div>`;
+            const res = await streamSingle(c.input, "eval-user", generateUUID());
+            results.push({ ...c, ...res });
+        }
+
+        let html = '<div class="scorecard"><strong>📊 Final Evaluation Report</strong><hr>';
+        results.forEach(r => {
+            html += `<div class="score-row"><span>${r.id}</span><span>TTFT: ${r.ttft.toFixed(0)}ms</span></div>`;
+        });
+        html += '</div>';
+        win.innerHTML += html;
+        evalBtn.disabled = false;
     }
 </script>
 
