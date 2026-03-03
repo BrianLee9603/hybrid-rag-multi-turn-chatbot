@@ -27,12 +27,11 @@ class ChatService:
             
         # Define our RAG search tool
         from app.services.rag_service import rag_service
-        
         @function_tool
         def search_docs(query: str) -> str:
             """
             Search internal repository documentation (README, requirements, etc.).
-            Use this when the user asks about the project setup, tech stack, or goal.
+            Use this ONLY when the user asks about the internal project setup, tech stack, or goal.
             """
             try:
                 print(f"RAG: Searching for context: {query}")
@@ -41,11 +40,27 @@ class ChatService:
                 print(f"RAG: Search failed: {e}")
                 return f"Error searching documents: {str(e)}"
 
+        # Define our Web search tool
+        from app.services.search_service import search_service
+        @function_tool
+        def search_web(query: str) -> str:
+            """
+            Search the live internet for real-time information, news, or general knowledge.
+            Use this when the user asks about anything outside of this specific repository.
+            """
+            return search_service.search(query)
+
         self.agent = Agent(
             name="Assistant",
-            instructions=settings.AGENT_PERSONA + "\n\nYou have access to internal project documentation. If you need to verify a requirement or setup step, use the search_docs tool.",
+            instructions=(
+                f"{settings.AGENT_PERSONA}\n\n"
+                "You have two specialized tools:\n"
+                "1. search_docs: Use this for project-specific info (README, requirements).\n"
+                "2. search_web: Use this for all other real-time or general knowledge queries.\n"
+                "Choose the right tool based on the user's intent."
+            ),
             model=settings.AGENT_MODEL,
-            tools=[search_docs]
+            tools=[search_docs, search_web]
         )
 
     async def summarize_history(self, history: List[ChatMessage], current_summary: Optional[str] = None) -> str:

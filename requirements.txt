@@ -13,3 +13,4 @@ pytest-mock
 httpx
 tiktoken
 chromadb
+duckduckgo-search
