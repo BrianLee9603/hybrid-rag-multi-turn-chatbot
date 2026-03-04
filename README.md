@@ -9,7 +9,14 @@ This repository contains my implementation of the AI chat service. The project f
 - OpenAI API Key
 - Tavily API Key (for web search augmentation)
 
-### 2. Configuration
+### 2. Installation
+Clone the repository and navigate into the project directory:
+```bash
+git clone https://github.com/BinhOiDungNghien/VCAPTECH_ASSIGNMENT.git
+cd VCAPTECH_ASSIGNMENT
+```
+
+### 3. Configuration
 Create a .env file in the root directory and provide your credentials:
 ```bash
 OPENAI_API_KEY=your_openai_api_key
