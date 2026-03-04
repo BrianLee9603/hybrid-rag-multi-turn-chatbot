@@ -31,8 +31,9 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    # Start app with hot-reloading for development
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    # Ensure migrations run before the app starts
+    command: >
+      sh -c "export PYTHONPATH=/app && alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
 
 volumes:
   postgres_data:
