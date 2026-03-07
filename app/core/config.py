@@ -10,9 +10,12 @@ class Settings(BaseSettings):
     # OpenAI Configuration
     OPENAI_API_KEY: Optional[str] = Field(None, env="OPENAI_API_KEY")
     AGENT_MODEL: str = "gpt-4o-mini"
+    EVAL_MODEL: str = "gpt-4o-mini" # Faster/Cheaper for evals
     
     # Database Configuration
     DATABASE_URL: str = Field("sqlite+aiosqlite:///./chat.db", env="DATABASE_URL")
+    CHROMA_DB_PATH: str = Field("./.db/chroma", env="CHROMA_DB_PATH")
+    DOCS_DIR: str = Field("./docs", env="DOCS_DIR")
     
     # App Persona (Stored centrally for easy updates)
     AGENT_PERSONA: str = (

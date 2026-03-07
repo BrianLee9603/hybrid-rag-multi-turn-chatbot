@@ -22,10 +22,12 @@ services:
     # Mount local code for live reloading
     volumes:
       - .:/app
+      - chroma_data:/app/.db/chroma
     env_file:
       - .env
     environment:
       - TAVILY_API_KEY=${TAVILY_API_KEY}
+      - CHROMA_DB_PATH=/app/.db/chroma
     ports:
       - "8000:8000"
     depends_on:
@@ -37,3 +39,4 @@ services:
 
 volumes:
   postgres_data:
+  chroma_data:

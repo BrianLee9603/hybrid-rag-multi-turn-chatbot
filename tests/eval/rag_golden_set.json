@@ -1,0 +1,30 @@
+[
+    {
+        "id": "rag_tech_stack",
+        "question": "What is the tech stack used for this specific VCAPTECH assignment?",
+        "ground_truth": "FastAPI, OpenAI Agents SDK, PostgreSQL with async SQLAlchemy (asyncpg), Alembic, and Docker.",
+        "expected_source": "README.md",
+        "category": "Project Meta"
+    },
+    {
+        "id": "sse_event_types",
+        "question": "Which SSE event types must the /api/v1/chat/stream endpoint emit?",
+        "ground_truth": "agent.message.delta, agent.message.done, agent.workflow.failed, and heartbeat (every 15 seconds).",
+        "expected_source": "docs/assignment_v2.md",
+        "category": "Project Requirements"
+    },
+    {
+        "id": "ai_engineering_def",
+        "question": "According to Chip Huyen, what is AI engineering?",
+        "ground_truth": "AI engineering is the process of building applications with readily available foundation models, involving navigating models, datasets, evaluation benchmarks, and application patterns.",
+        "expected_source": "docs/1762711142441.pdf",
+        "category": "Domain Knowledge"
+    },
+    {
+        "id": "model_adaptation",
+        "question": "What model adaptation techniques does the Chip Huyen book explore?",
+        "ground_truth": "Prompt engineering, RAG, finetuning, agents, and dataset engineering.",
+        "expected_source": "docs/1762711142441.pdf",
+        "category": "Domain Knowledge"
+    }
+]

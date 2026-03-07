@@ -3,14 +3,14 @@ from app.services.rag_service import rag_service
 from app.services.search_service import search_service
 
 @function_tool
-def search_docs(query: str) -> str:
+async def search_docs(query: str) -> str:
     """
     Search internal repository documentation (README, requirements, etc.).
     Use this ONLY when the user asks about the internal project setup, tech stack, or goal.
     """
     try:
         print(f"RAG: Searching for context: {query}")
-        return rag_service.search(query)
+        return await rag_service.search(query)
     except Exception as e:
         print(f"RAG: Search failed: {e}")
         return f"Error searching documents: {str(e)}"
