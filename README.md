@@ -1,4 +1,4 @@
-# AI Core Service Engineer — Take-Home Implementation
+# AI Core Service Engineer 
 
 This repository contains my implementation of the AI chat service. The project focuses on reliable real-time streaming, persistent chat history, and a modular architecture that separates data access from business logic.
 
@@ -12,7 +12,7 @@ This repository contains my implementation of the AI chat service. The project f
 ### 2. Installation
 Clone the repository and navigate into the project directory:
 ```bash
-git clone https://github.com/BinhOiDungNghien/VCAPTECH_ASSIGNMENT.git
+git clone https://github.com/BrianLee9603/hybrid-rag-multi-turn-chatbot.git
 cd VCAPTECH_ASSIGNMENT
 ```
 
