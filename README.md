@@ -13,7 +13,7 @@ This repository contains my implementation of the AI chat service. The project f
 Clone the repository and navigate into the project directory:
 ```bash
 git clone https://github.com/BrianLee9603/hybrid-rag-multi-turn-chatbot.git
-cd VCAPTECH_ASSIGNMENT
+cd hybrid-rag-multi-turn-chatbot
 ```
 
 ### 3. Configuration
